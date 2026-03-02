@@ -261,6 +261,13 @@
                     <li><code>sudo ufw enable</code> (type <code>y</code> to confirm)</li>
                     <li><code>sudo ufw status</code></li>
                 </ul>
+                <div style="margin-top:10px;font-size:12px;color:#666;line-height:1.5">
+                    <strong>Target rules after hardening:</strong><br>
+                    • <code>22 on tailscale0 ALLOW IN</code> (v4 + v6)<br>
+                    • <code>631/tcp DENY IN</code> (v4 + v6)<br>
+                    • No <code>Anywhere on tailscale0 ALLOW</code> broad rule<br>
+                    • No generic <code>22 ALLOW Anywhere</code>
+                </div>
             </div>
             
             <div class="security-group">
