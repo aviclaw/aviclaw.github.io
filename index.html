@@ -253,20 +253,20 @@
 
             <div class="security-group">
                 <h3>1.1 UFW Baseline (Tailscale SSH only)</h3>
-                <ul>
-                    <li><code>sudo apt install ufw -y</code></li>
-                    <li><code>sudo ufw default deny incoming</code></li>
-                    <li><code>sudo ufw default allow outgoing</code></li>
-                    <li><code>sudo ufw allow in on tailscale0 to any port 22</code></li>
-                    <li><code>sudo ufw enable</code> (type <code>y</code> to confirm)</li>
-                    <li><code>sudo ufw status</code></li>
-                </ul>
-                <div style="margin-top:10px;font-size:12px;color:#666;line-height:1.5">
-                    <strong>Target rules after hardening:</strong><br>
-                    • <code>22 on tailscale0 ALLOW IN</code> (v4 + v6)<br>
-                    • <code>631/tcp DENY IN</code> (v4 + v6)<br>
-                    • No <code>Anywhere on tailscale0 ALLOW</code> broad rule<br>
-                    • No generic <code>22 ALLOW Anywhere</code>
+                <div style="margin-top:10px;font-size:12px;color:#666;line-height:1.6">
+                    <pre style="background:#111;color:#f5f5f5;padding:12px;border-radius:6px;overflow:auto;white-space:pre-wrap">sudo apt install ufw -y
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow in on tailscale0 to any port 22
+sudo ufw enable   # type y to confirm
+sudo ufw status</pre>
+                </div>
+                <div style="margin-top:10px;font-size:12px;color:#666;line-height:1.6">
+                    <strong>Target rules after hardening:</strong>
+                    <pre style="background:#111;color:#f5f5f5;padding:12px;border-radius:6px;overflow:auto;white-space:pre-wrap">22 on tailscale0 ALLOW IN (v4 + v6)
+631/tcp DENY IN (v4 + v6)
+(no broad) Anywhere on tailscale0 ALLOW
+(no generic) 22 ALLOW Anywhere</pre>
                 </div>
             </div>
             
@@ -364,15 +364,54 @@
         
         <section>
             <h2>Transfer OpenClaw to Another Server</h2>
+
             <div class="security-group">
-                <h3>Fast migration checklist</h3>
-                <ul>
-                    <li><strong>Copy first:</strong> <code>~/.openclaw/openclaw.json</code>, <code>~/.openclaw/secrets.env</code>, <code>~/.openclaw/workspace/</code>, <code>~/.openclaw/cron/</code>, optional <code>~/.config/gh/</code>.</li>
-                    <li><strong>Package + encrypt:</strong> create a tarball and encrypt with GPG before transfer.</li>
-                    <li><strong>Download to private PC:</strong> use <code>scp</code> into a dedicated private folder.</li>
-                    <li><strong>Restore on new server:</strong> same paths, then <code>chmod 600 ~/.openclaw/secrets.env</code>.</li>
-                    <li><strong>Validate:</strong> restart gateway, list cron jobs, run one test job, verify Telegram/X integrations.</li>
-                </ul>
+                <h3>On server (create export)</h3>
+                <pre style="background:#111;color:#f5f5f5;padding:12px;border-radius:6px;overflow:auto;white-space:pre-wrap">mkdir -p ~/migration-export
+
+tar --exclude='.openclaw/workspace/node_modules' \
+    --exclude='.openclaw/workspace/.git' \
+    -czf ~/migration-export/openclaw-migrate-$(date +%F).tar.gz \
+    ~/.openclaw/openclaw.json \
+    ~/.openclaw/secrets.env \
+    ~/.openclaw/workspace \
+    ~/.openclaw/cron \
+    ~/.config/gh 2>/dev/null</pre>
+            </div>
+
+            <div class="security-group">
+                <h3>Encrypt it (recommended)</h3>
+                <pre style="background:#111;color:#f5f5f5;padding:12px;border-radius:6px;overflow:auto;white-space:pre-wrap">gpg --symmetric --cipher-algo AES256 ~/migration-export/openclaw-migrate-$(date +%F).tar.gz
+rm ~/migration-export/openclaw-migrate-$(date +%F).tar.gz</pre>
+            </div>
+
+            <div class="security-group">
+                <h3>On private PC (decrypt + inspect)</h3>
+                <pre style="background:#111;color:#f5f5f5;padding:12px;border-radius:6px;overflow:auto;white-space:pre-wrap">cd ~/Private/openclaw-backup
+gpg -d openclaw-migrate-*.tar.gz.gpg > openclaw-migrate.tar.gz
+tar -tzf openclaw-migrate.tar.gz | head -50</pre>
+            </div>
+
+            <div class="security-group">
+                <h3>After installing OpenClaw on the new server: upload, untar, restore</h3>
+                <pre style="background:#111;color:#f5f5f5;padding:12px;border-radius:6px;overflow:auto;white-space:pre-wrap"># upload archive from private PC
+scp ~/Private/openclaw-backup/openclaw-migrate-*.tar.gz ubuntu@&lt;NEW_SERVER_IP&gt;:/home/ubuntu/
+
+# on new server
+mkdir -p /home/ubuntu/restore-openclaw
+tar -xzf /home/ubuntu/openclaw-migrate-*.tar.gz -C /home/ubuntu/restore-openclaw
+
+# copy to final paths
+cp /home/ubuntu/restore-openclaw/home/ubuntu/.openclaw/openclaw.json /home/ubuntu/.openclaw/
+cp /home/ubuntu/restore-openclaw/home/ubuntu/.openclaw/secrets.env /home/ubuntu/.openclaw/
+cp -a /home/ubuntu/restore-openclaw/home/ubuntu/.openclaw/workspace /home/ubuntu/.openclaw/
+cp -a /home/ubuntu/restore-openclaw/home/ubuntu/.openclaw/cron /home/ubuntu/.openclaw/ 2>/dev/null || true
+cp -a /home/ubuntu/restore-openclaw/home/ubuntu/.config/gh /home/ubuntu/.config/ 2>/dev/null || true
+
+# permissions + restart
+chmod 600 /home/ubuntu/.openclaw/secrets.env
+openclaw gateway restart
+openclaw gateway status</pre>
             </div>
         </section>
 
