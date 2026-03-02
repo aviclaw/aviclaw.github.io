@@ -394,22 +394,32 @@ tar -tzf openclaw-migrate.tar.gz | head -50</pre>
 
             <div class="security-group">
                 <h3>After installing OpenClaw on the new server: upload, untar, restore</h3>
-                <pre style="background:#111;color:#f5f5f5;padding:12px;border-radius:6px;overflow:auto;white-space:pre-wrap"># upload archive from private PC
-scp ~/Private/openclaw-backup/openclaw-migrate-*.tar.gz ubuntu@&lt;NEW_SERVER_IP&gt;:/home/ubuntu/
+                <pre style="background:#111;color:#f5f5f5;padding:12px;border-radius:6px;overflow:auto;white-space:pre-wrap"># detect/install paths once (no hardcoded /home/ubuntu)
+export USER_HOME="$HOME"
+export OPENCLAW_HOME="$USER_HOME/.openclaw"
+export RESTORE_DIR="$USER_HOME/restore-openclaw"
+
+# upload archive from private PC
+scp ~/Private/openclaw-backup/openclaw-migrate-*.tar.gz user@&lt;NEW_SERVER_IP&gt;:$USER_HOME/
 
 # on new server
-mkdir -p /home/ubuntu/restore-openclaw
-tar -xzf /home/ubuntu/openclaw-migrate-*.tar.gz -C /home/ubuntu/restore-openclaw
+mkdir -p "$RESTORE_DIR"
+tar -xzf "$USER_HOME"/openclaw-migrate-*.tar.gz -C "$RESTORE_DIR"
+
+# discover source root inside archive dynamically
+SRC_ROOT=$(find "$RESTORE_DIR" -type d -path "*/.openclaw" | head -1)
+SRC_HOME=$(dirname "$SRC_ROOT")
 
 # copy to final paths
-cp /home/ubuntu/restore-openclaw/home/ubuntu/.openclaw/openclaw.json /home/ubuntu/.openclaw/
-cp /home/ubuntu/restore-openclaw/home/ubuntu/.openclaw/secrets.env /home/ubuntu/.openclaw/
-cp -a /home/ubuntu/restore-openclaw/home/ubuntu/.openclaw/workspace /home/ubuntu/.openclaw/
-cp -a /home/ubuntu/restore-openclaw/home/ubuntu/.openclaw/cron /home/ubuntu/.openclaw/ 2>/dev/null || true
-cp -a /home/ubuntu/restore-openclaw/home/ubuntu/.config/gh /home/ubuntu/.config/ 2>/dev/null || true
+mkdir -p "$OPENCLAW_HOME"
+cp "$SRC_ROOT"/openclaw.json "$OPENCLAW_HOME"/
+cp "$SRC_ROOT"/secrets.env "$OPENCLAW_HOME"/
+cp -a "$SRC_ROOT"/workspace "$OPENCLAW_HOME"/
+cp -a "$SRC_ROOT"/cron "$OPENCLAW_HOME"/ 2>/dev/null || true
+cp -a "$SRC_HOME"/.config/gh "$USER_HOME"/.config/ 2>/dev/null || true
 
 # permissions + restart
-chmod 600 /home/ubuntu/.openclaw/secrets.env
+chmod 600 "$OPENCLAW_HOME"/secrets.env
 openclaw gateway restart
 openclaw gateway status</pre>
             </div>
